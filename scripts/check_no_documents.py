@@ -46,14 +46,44 @@ BLOCKED_PREFIXES = (
 # Document, image and tabular-export extensions.
 BLOCKED_SUFFIXES = {
     # page images and scans
-    ".pdf", ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".gif",
-    ".webp", ".heic", ".heif", ".jp2", ".pnm", ".ppm",
+    ".pdf",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".tif",
+    ".tiff",
+    ".bmp",
+    ".gif",
+    ".webp",
+    ".heic",
+    ".heif",
+    ".jp2",
+    ".pnm",
+    ".ppm",
     # office documents
-    ".doc", ".docx", ".xls", ".xlsx", ".xlsm", ".ppt", ".pptx", ".odt", ".ods",
+    ".doc",
+    ".docx",
+    ".xls",
+    ".xlsx",
+    ".xlsm",
+    ".ppt",
+    ".pptx",
+    ".odt",
+    ".ods",
     # tabular exports (master data, extraction dumps, gold sheets)
-    ".csv", ".tsv", ".parquet", ".arrow", ".feather",
+    ".csv",
+    ".tsv",
+    ".parquet",
+    ".arrow",
+    ".feather",
     # archives, which hide all of the above
-    ".zip", ".tar", ".gz", ".tgz", ".bz2", ".7z", ".rar",
+    ".zip",
+    ".tar",
+    ".gz",
+    ".tgz",
+    ".bz2",
+    ".7z",
+    ".rar",
 }
 
 # (magic bytes, human name). Checked against the staged blob.
@@ -73,9 +103,7 @@ MAGIC = (
 
 
 def _git(*args: str) -> bytes:
-    return subprocess.run(
-        ["git", *args], cwd=REPO_ROOT, capture_output=True, check=True
-    ).stdout
+    return subprocess.run(["git", *args], cwd=REPO_ROOT, capture_output=True, check=True).stdout
 
 
 def load_allowlist() -> list[str]:
