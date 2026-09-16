@@ -1,27 +1,140 @@
-# Likelihood ratios per check.
+# Likelihood ratios per check (ADR-0007).
 #
-# CLAUDE.md section 5: "initial LRs are hand-set in config/evidence.yaml and
-# recalibrated from gold at the end". They are deliberately NOT set here -
-# inventing them before the checks exist would bake in numbers nobody chose.
-# Setting the initial values is an ADR (context, decision, consequences), due
-# with the Tier 0/1 implementation.
+# A likelihood ratio is P(observation | value correct) / P(observation | value
+# wrong). Above 1.0 supports correct, below supports wrong, 1.0 says nothing.
 #
-# Two properties this file must preserve, from CLAUDE.md section 3:
-#   - Rejecting-only checks (type, format, range, checksum, value-parses-from-
-#     source_text) may drive P(correct) to ~0 on failure. They must NOT confirm
-#     on success: lr_confirm stays 1.0.
-#   - Confirming checks (arithmetic reconciliation, counterpart match,
-#     master-data match, independent-lineage crop agreement, premium region
-#     read) carry lr_confirm > 1.0, weighted by estimated lineage independence.
+# These are HAND-SET STARTING VALUES, chosen conservatively and recalibrated
+# from gold at the end of the run (CLAUDE.md §5). T11 is the test that says
+# whether they were any good: if predicted P(wrong) and observed disagree by
+# more than ±50% per decile, these numbers are wrong and the calibration step
+# is what fixes them.
+#
+# Two rules the loader enforces, so they cannot drift:
+#   - A rejecting check that PASSES carries lr_confirm = 1.0. Always. A value
+#     that parses as a number is not thereby correct.
+#   - A check that did not run (UNAVAILABLE / NOT_APPLICABLE) carries 1.0.
+#
+# `group` marks checks whose errors are correlated. Within a group the strongest
+# piece of evidence counts in full and the others are damped, because
+# multiplying correlated evidence manufactures confidence that isn't there -
+# which would understate residual error, the one direction we cannot afford to
+# be wrong in. See ADR-0007.
 
-checks: {}
+version: 1
+correlation_damping: 0.3      # exponent applied to all but the strongest LR in a group
 
-# Example shape:
-#
-# checks:
-#   tier0.value_parses_from_source_text:
-#     tier: 0
-#     kind: rejecting        # rejecting | confirming
-#     lr_confirm: 1.0        # rejecting checks never confirm
-#     lr_reject: null        # TODO set in ADR
-#     cost_usd: 0.0
+checks:
+  # --- Tier 0, rejecting -----------------------------------------------------
+  tier0.type_format:
+    tier: 0
+    kind: rejecting
+    group: tier0_shape
+    lr_confirm: 1.0
+    lr_reject: 0.05
+    cost_usd: 0.0
+
+  tier0.value_parses_from_source_text:
+    tier: 0
+    kind: rejecting
+    group: tier0_shape
+    lr_confirm: 1.0
+    # Near-conclusive: the provider's own quoted text does not produce its own
+    # value. This is the transcription error no second engine would catch,
+    # because both engines read the pixels correctly (part-2 §4).
+    lr_reject: 0.01
+    cost_usd: 0.0
+
+  tier0.date_sanity:
+    tier: 0
+    kind: rejecting
+    group: tier0_shape
+    lr_confirm: 1.0
+    lr_reject: 0.05
+    cost_usd: 0.0
+
+  tier0.identifier_checksum:
+    tier: 0
+    kind: rejecting
+    group: tier0_shape
+    lr_confirm: 1.0
+    lr_reject: 0.02
+    cost_usd: 0.0
+
+  tier0.money_range:
+    tier: 0
+    kind: rejecting
+    group: tier0_shape
+    lr_confirm: 1.0
+    lr_reject: 0.10
+    cost_usd: 0.0
+
+  # --- Tier 0, confirming ----------------------------------------------------
+  tier0.arithmetic_reconciliation:
+    tier: 0
+    kind: confirming
+    group: tier0_arithmetic
+    # Strong: a misread total does not survive the sum of its own line items,
+    # except under compensating errors, which are rare and are what the audit
+    # of passed fields exists to find.
+    lr_confirm: 15.0
+    # Weak in the other direction: a failing invariant implicates a SET of
+    # fields and does not say which one is wrong.
+    lr_reject: 0.30
+    cost_usd: 0.0
+
+  tier0.master_data_match:
+    tier: 0
+    kind: confirming
+    group: tier0_external
+    lr_confirm: 25.0
+    lr_reject: 0.15
+    cost_usd: 0.0
+    note: UNAVAILABLE on the public corpora - no customer master data (ADR-0005).
+
+  tier0.counterpart_match:
+    tier: 0
+    kind: confirming
+    group: tier0_external
+    # The strongest evidence in the stack, and absent from every public corpus.
+    # Its absence is why measured coverage from this run is a lower bound.
+    lr_confirm: 40.0
+    lr_reject: 0.10
+    cost_usd: 0.0
+    note: UNAVAILABLE on the public corpora (ADR-0003, ADR-0005).
+
+  # --- Tier 1, confirming ----------------------------------------------------
+  tier1.source_text_grounds:
+    tier: 1
+    kind: confirming
+    group: tier1_grounding
+    # The check a fabricating extractor cannot satisfy: an invented value must
+    # also invent text that appears on a page it never read.
+    lr_confirm: 4.0
+    lr_reject: 0.15
+    cost_usd: 0.0
+
+  tier1.location_agrees:
+    tier: 1
+    kind: confirming
+    group: tier1_grounding      # correlated with the check above, by construction
+    lr_confirm: 3.0
+    lr_reject: 0.10
+    cost_usd: 0.0
+
+  tier1.reference_reads_same_value:
+    tier: 1
+    kind: confirming
+    group: tier1_independent_read
+    # An independent reader of genuinely different lineage - weaker than a
+    # premium reread, but ours and free.
+    lr_confirm: 6.0
+    lr_reject: 0.20
+    cost_usd: 0.0
+
+  tier1.multi_occurrence_agreement:
+    tier: 1
+    kind: confirming
+    group: tier1_independent_read
+    lr_confirm: 5.0
+    lr_reject: 0.15
+    cost_usd: 0.0
