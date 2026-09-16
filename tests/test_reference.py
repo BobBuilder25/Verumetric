@@ -224,3 +224,58 @@ def test_engine_version_is_recorded(layer):
     recorded per page rather than inferred later (ADR-0006)."""
     assert "engine" in layer.to_json()
     assert "engine_version" in layer.to_json()
+
+
+# --- skew (regression: found by tools/demo.py on the first augmented run) ----
+
+
+def rotated_layer(angle_deg: float) -> ReferenceLayer:
+    """SYNTHETIC page of three 3-word lines, rotated about its centre."""
+    import math
+
+    theta = math.radians(angle_deg)
+    words = []
+    for row, y in enumerate((0.20, 0.40, 0.60)):
+        for col, x in enumerate((0.10, 0.30, 0.50)):
+            cx, cy = x + 0.05, y + 0.01
+            dx, dy = cx - 0.5, cy - 0.5
+            rx = 0.5 + dx * math.cos(theta) - dy * math.sin(theta)
+            ry = 0.5 + dx * math.sin(theta) + dy * math.cos(theta)
+            words.append(word(f"w{row}{col}", rx - 0.05, ry - 0.01, rx + 0.05, ry + 0.01))
+    return ReferenceLayer(doc_id="rot", page=1, width=1000, height=1000, words=tuple(words))
+
+
+def test_skew_is_detected():
+    assert rotated_layer(5.0).estimate_skew_deg() == pytest.approx(5.0, abs=1.0)
+
+
+def test_an_unrotated_page_has_no_skew():
+    assert rotated_layer(0.0).estimate_skew_deg() == pytest.approx(0.0, abs=0.5)
+
+
+def test_rotation_shatters_lines_without_deskewing():
+    """The bug: on a rotated page, words sharing a text line no longer share a
+    y-coordinate, so raw grouping produces roughly one fragment per word."""
+    layer = rotated_layer(5.0)
+    assert len(layer.lines(deskew=False)) > 3
+
+
+def test_deskewing_recovers_the_true_line_structure():
+    layer = rotated_layer(5.0)
+    assert len(layer.lines()) == 3
+
+
+def test_multi_word_grounding_survives_rotation():
+    """Why the bug mattered: ground() only searches spans WITHIN a line, so
+    shattered lines mean every multi-word field fails to ground - on half the
+    corpus, which is rotated by design (ADR-0005). Measured on the demo page:
+    0.67-0.75 without deskew, 1.00 with."""
+    layer = rotated_layer(5.0)
+    assert ground("w00 w01 w02", layer).score == pytest.approx(1.0)
+
+
+def test_line_structure_is_stable_across_rotations():
+    """The structural row count feeds Tier 4 recall repair; it must not depend
+    on how the page happened to be photographed."""
+    for angle in (-7.0, -3.0, 0.0, 3.0, 7.0):
+        assert len(rotated_layer(angle).lines()) == 3, f"failed at {angle} degrees"

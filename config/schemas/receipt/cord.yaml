@@ -13,6 +13,14 @@ document_class: cord_receipt
 source_corpus: cord
 license: CC-BY-4.0
 
+# CORD receipts are Indonesian: amounts are in rupiah and "." is a thousands
+# separator. Both of these must be pinned or the pipeline silently misreads
+# every money field - by a factor of 1000 for the separator, and by the exchange
+# rate for the consequence.
+decimal_separator: ","
+currency: IDR
+usd_per_currency_unit: null     # TODO pin before any consequence is computed
+
 field_class_map:
   money:
     - "menu.price"

@@ -58,6 +58,20 @@ class ClassPolicy:
     date_not_after: date | None = None
     allow_negative_money: bool = True
 
+    #: The document's currency, and what one unit of it is worth in USD.
+    #: Consequence is denominated in dollars and the stopping rule compares it
+    #: against dollar check prices, but a receipt's face value is in its own
+    #: currency. Feeding 66,000 IDR in as 66,000 USD makes every field look
+    #: ~16,000x more consequential than it is, which sends everything to the
+    #: premium tier and would produce a false "verification is uneconomic"
+    #: result - a T3 and T5 failure caused entirely by an unconverted number.
+    currency: str = "USD"
+    usd_per_currency_unit: Decimal = Decimal("1")
+
+    def to_usd(self, amount: Decimal) -> Decimal:
+        """Face value in the document's currency -> dollars at risk."""
+        return amount * self.usd_per_currency_unit
+
 
 def _result(
     check_id: str,

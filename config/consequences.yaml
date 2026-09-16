@@ -10,6 +10,13 @@
 # stopping rule is sensitive to them: halving the money multiplier moves fields
 # out of Tier 3 and changes measured coverage.
 
+# CURRENCY: consequence is denominated in USD. A document whose face values are
+# in another currency MUST have its class schema declare `currency` and
+# `usd_per_currency_unit`, or the money multiplier silently inflates every
+# consequence by the exchange rate - which sends every field to the premium tier
+# and fails T3/T5 for a reason that has nothing to do with verification.
+# Caught by tools/demo.py on the first end-to-end run.
+
 status: placeholder
 set_by: tanner
 set_on: 2026-09-16
@@ -68,6 +75,13 @@ by_source: {}
 # report printing a T5 second-clause result computed from a placeholder is a bug.
 human_review_cost_per_page_usd:
   _placeholder: 0.90
-  _status: placeholder
+  _# CURRENCY: consequence is denominated in USD. A document whose face values are
+# in another currency MUST have its class schema declare `currency` and
+# `usd_per_currency_unit`, or the money multiplier silently inflates every
+# consequence by the exchange rate - which sends every field to the premium tier
+# and fails T3/T5 for a reason that has nothing to do with verification.
+# Caught by tools/demo.py on the first end-to-end run.
+
+status: placeholder
   _gating: forbidden
   by_source: {}             # real reported figures land here, one per source

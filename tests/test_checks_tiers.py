@@ -11,7 +11,7 @@ from decimal import Decimal
 
 import pytest
 
-from verumetric.checks.base import CheckOutcome
+from verumetric.checks.base import CheckKind, CheckOutcome
 from verumetric.checks.tier0_deterministic import (
     ClassPolicy,
     aba_routing_ok,
@@ -343,3 +343,48 @@ def test_single_occurrence_is_not_applicable():
     a = claim("66.000", cid="a")
     r = check_multi_occurrence_agreement(a, [a], WEIGHTS, IDN)
     assert r.outcome is CheckOutcome.NOT_APPLICABLE
+
+
+# --- currency (regression: found by tools/demo.py on the first run) ----------
+
+
+def test_policy_converts_face_value_to_dollars():
+    """Consequence is in USD; a receipt's face value is not. Feeding 66,000 IDR
+    in as 66,000 USD makes a $4 field look like a $66,000 one."""
+    idr = ClassPolicy(currency="IDR", usd_per_currency_unit=Decimal("0.000061"))
+    assert idr.to_usd(Decimal("66000")) == pytest.approx(Decimal("4.026"))
+
+
+def test_usd_documents_convert_to_themselves():
+    assert ClassPolicy().to_usd(Decimal("18381.16")) == Decimal("18381.16")
+
+
+def test_the_unconverted_consequence_bug_would_have_escalated_everything():
+    """Documents the failure mode so it cannot come back quietly: an unconverted
+    IDR consequence inflates expected loss by ~16,000x, sending every field to
+    the premium tier. That fails T3 and T5 for a reason with nothing to do with
+    verification - the experiment would report the wrong answer."""
+    from verumetric.checks.base import CheckResult
+    from verumetric.evidence import Decision, StoppingRule, combine
+
+    evidence = [
+        CheckResult(
+            "tier0.arithmetic_reconciliation", 0, CheckKind.CONFIRMING, CheckOutcome.PASS, 15.0
+        ),
+        CheckResult("tier1.source_text_grounds", 1, CheckKind.CONFIRMING, CheckOutcome.PASS, 4.0),
+        CheckResult(
+            "tier1.reference_reads_same_value", 1, CheckKind.CONFIRMING, CheckOutcome.PASS, 6.0
+        ),
+    ]
+    posterior = combine(0.90, evidence)
+    rule = StoppingRule()
+    idr = ClassPolicy(currency="IDR", usd_per_currency_unit=Decimal("0.000061"))
+    tier2_price = Decimal("0.0013")
+
+    converted, _ = rule.decide(
+        posterior, FieldClass.MONEY, idr.to_usd(Decimal("66000")), tier2_price
+    )
+    unconverted, _ = rule.decide(posterior, FieldClass.MONEY, Decimal("66000"), tier2_price)
+
+    assert converted is Decision.PASS
+    assert unconverted is Decision.PENDING

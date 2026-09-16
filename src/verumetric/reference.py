@@ -23,6 +23,7 @@ reading of the same pixels.
 from __future__ import annotations
 
 import json
+import math
 import re
 import unicodedata
 from dataclasses import dataclass, field
@@ -122,23 +123,44 @@ class ReferenceLayer:
 
     # --- structure -------------------------------------------------------
 
-    def lines(self, y_tolerance: float = 0.006) -> list[list[int]]:
-        """Group word indices into reading-order lines by vertical overlap.
+    def estimate_skew_deg(self, search_deg: float = 12.0, step_deg: float = 0.5) -> float:
+        """Dominant text angle, by projection profile.
 
-        Needed for the recall problem: when reconciliation fails because a line
-        item is missing, the structural row count says which region the
-        extractor skipped, so Tier 4 reprocesses that region rather than the
-        page (part-3 §3).
+        Half the corpus is deliberately rotated (ADR-0005), and on a skewed page
+        words that share a text line no longer share a y-coordinate. Grouping on
+        raw y then shatters every line into fragments - which breaks the
+        structural row count that Tier 4 recall repair depends on, and stops
+        multi-word `source_text` from ever matching in `ground()`, because that
+        search only considers spans *within* a line.
+
+        The angle that packs the words into the fewest lines is the page's skew.
         """
-        order = sorted(
-            range(len(self.words)), key=lambda i: (self.words[i].center_y, self.words[i].bbox.x0)
-        )
+        if len(self.words) < 4:
+            return 0.0
+        best_angle, best_count = 0.0, None
+        steps = int(2 * search_deg / step_deg) + 1
+        for k in range(steps):
+            angle = -search_deg + k * step_deg
+            count = len(self._group_at(angle))
+            if best_count is None or count < best_count:
+                best_angle, best_count = angle, count
+        return best_angle
+
+    def _group_at(self, angle_deg: float, y_tolerance: float = 0.006) -> list[list[int]]:
+        theta = math.radians(angle_deg)
+        sin_t, cos_t = math.sin(theta), math.cos(theta)
+
+        def rotated_y(i: int) -> float:
+            w = self.words[i]
+            cx = (w.bbox.x0 + w.bbox.x1) / 2.0
+            return w.center_y * cos_t - cx * sin_t
+
+        order = sorted(range(len(self.words)), key=lambda i: (rotated_y(i), self.words[i].bbox.x0))
         out: list[list[int]] = []
         for i in order:
-            w = self.words[i]
             placed = False
             for line in out:
-                if abs(self.words[line[0]].center_y - w.center_y) <= y_tolerance:
+                if abs(rotated_y(line[0]) - rotated_y(i)) <= y_tolerance:
                     line.append(i)
                     placed = True
                     break
@@ -147,6 +169,22 @@ class ReferenceLayer:
         for line in out:
             line.sort(key=lambda i: self.words[i].bbox.x0)
         return out
+
+    def lines(self, y_tolerance: float = 0.006, deskew: bool = True) -> list[list[int]]:
+        """Group word indices into reading-order lines.
+
+        Deskews first by default: on a rotated page, grouping on raw y produces
+        roughly one fragment per word, and everything downstream that relies on
+        line structure silently stops working while still returning plausible
+        output.
+
+        Needed for the recall problem: when reconciliation fails because a line
+        item is missing, the structural row count says which region the
+        extractor skipped, so Tier 4 reprocesses that region rather than the
+        page (part-3 §3).
+        """
+        angle = self.estimate_skew_deg() if deskew else 0.0
+        return self._group_at(angle, y_tolerance)
 
     def words_in(self, box: BoundingBox, min_overlap: float = 0.3) -> list[int]:
         """Indices of words whose area overlaps `box` by at least `min_overlap`."""
