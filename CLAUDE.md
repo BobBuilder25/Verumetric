@@ -8,6 +8,14 @@ You are working in the `verumetric` repository with Tanner (GitHub: BobBuilder25
 
 Verumetric is a **machine-only verification and certification layer for machine-generated business work**, starting with structured document extraction.
 
+> **Read [`docs/charter.md`](docs/charter.md) first.** It states what the whole
+> build is for; this file is the build spec for the first experiment in service
+> of it. Documents are the first proof, not the point: the system checks any
+> task whose output leaves evidence that would have failed had the work been
+> wrong. Confirmed 2026-09-16 — scope is documents first with nothing hardcoding
+> "document" underneath (ADR-0009), the first buyer is a business with
+> back-office paper, and we pick the engine as well as checking the work.
+
 The product, when it exists: a customer sends documents plus a JSON schema (plus counterpart documents and master data where available). Verumetric routes the extraction to one of several upstream providers, verifies every field claim with an automated evidence stack, and returns **evidence-backed structured data** split into a **certified stream** (auto-passed fields with a measured, published residual error rate) and an **exception stream** (FAIL / UNVERIFIED fields returned as null or low-confidence). No human at Verumetric touches a customer job. Humans only build ground truth and audit the verifier offline.
 
 Long-term, the verified-outcome ledger becomes a performance graph (provider × capability × document context × epoch × time), which powers routing, provider attestations, and possibly underwriting data. **None of that is being built now.**
