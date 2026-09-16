@@ -1,0 +1,17 @@
+# P(correct) before any check, keyed by (provider, field_class, document_class).
+#
+# CLAUDE.md section 5: start pessimistic until gold calibrates it. A pessimistic
+# prior forces more evidence gathering, which is the behaviour we want from an
+# uncalibrated cell - it is a safety property, not a placeholder to tune away.
+
+default: 0.90
+
+# Overrides, most specific wins. Populated from gold after the first scoring run.
+# by_provider:
+#   textract:
+#     default: 0.90
+#     by_field_class:
+#       money: 0.88
+#     by_document_class:
+#       construction_delivery_ticket: 0.85
+by_provider: {}

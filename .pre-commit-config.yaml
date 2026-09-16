@@ -1,0 +1,12 @@
+# Optional: for contributors who use the pre-commit framework.
+# The guard also runs as a plain git hook with no dependencies:
+#     git config core.hooksPath .githooks
+repos:
+  - repo: local
+    hooks:
+      - id: no-document-content
+        name: refuse to commit document content
+        entry: python3 scripts/check_no_documents.py
+        language: system
+        pass_filenames: false
+        always_run: true

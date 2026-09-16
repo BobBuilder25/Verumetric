@@ -1,0 +1,29 @@
+# Customer documents, crops, reference layers, gold, run artifacts, master data.
+# Excluded entirely. Never force-add anything from here; the pre-commit guard
+# (scripts/check_no_documents.py) will refuse it.
+data/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+build/
+dist/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

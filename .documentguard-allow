@@ -1,0 +1,4 @@
+# Globs exempted from scripts/check_no_documents.py.
+# One glob per line, each with a comment saying why it is not customer content.
+# Keep this file short. An entry here is a promise that the path holds no
+# document content, now or later.

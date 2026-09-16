@@ -1,0 +1,31 @@
+# Extraction providers and the premium verifier.
+#
+# Unfilled: needs Tanner's credentials and each vendor's current posted pricing.
+# CLAUDE.md section 3 rule 9: never send documents to a provider not listed here.
+# Target: 4-5 extractors across >= 3 lineages, one of them an open-weights
+# engine we run ourselves, plus one reference-layer OCR and one premium verifier.
+#
+# Each entry:
+#   id:        stable key used in logs, priors and the cost ledger
+#   role:      extractor | reference | premium
+#   adapter:   dotted path under verumetric.providers
+#   lineage:   key into lineages.yaml (two providers sharing a backbone are NOT
+#              independent, whatever their marketing says)
+#   region:    where the document is processed; a hard policy input, not a note
+#   pricing:   unit and rate; leave null until confirmed against the vendor page
+#   enabled:   false until credentials are present and a smoke test has passed
+
+providers: []
+
+# Example shape (commented until a real provider is wired):
+#
+# providers:
+#   - id: textract
+#     role: extractor
+#     adapter: verumetric.providers.textract
+#     lineage: aws-textract
+#     region: us-west-2
+#     pricing:
+#       unit: page
+#       usd_per_unit: null      # TODO confirm
+#     enabled: false

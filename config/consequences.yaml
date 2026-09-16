@@ -1,0 +1,39 @@
+# Consequence: the customer-assigned cost of an undetected error on a field.
+# It is the term that decides how deep the evidence stack goes, via the stopping
+# rule: PASS when P(wrong) x consequence < cost of the next useful check.
+#
+# CLAUDE.md section 4: money fields default to their value x a multiplier;
+# identifiers get a policy constant. These come from a 30-minute session with
+# each document source - they are the customer's numbers, not ours. Collect the
+# customer's current per-page human review cost in the same session; T5's second
+# clause cannot be evaluated without it.
+
+defaults:
+  money:
+    mode: value_multiplier
+    multiplier: null          # TODO from each document source
+  identifier:
+    mode: policy_constant
+    usd: null                 # TODO
+  quantity:
+    mode: policy_constant
+    usd: null                 # TODO
+  date:
+    mode: policy_constant
+    usd: null                 # TODO
+  party:
+    mode: policy_constant
+    usd: null                 # TODO
+  text:
+    mode: policy_constant
+    usd: null                 # TODO
+  line_item:
+    mode: policy_constant
+    usd: null                 # TODO
+
+# Per-source overrides, keyed by document source id.
+by_source: {}
+
+# Reported by each source, for T5. Not a consequence; recorded here so it is
+# collected in the same conversation.
+human_review_cost_per_page_usd: {}

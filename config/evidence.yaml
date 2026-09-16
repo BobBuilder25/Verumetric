@@ -1,0 +1,27 @@
+# Likelihood ratios per check.
+#
+# CLAUDE.md section 5: "initial LRs are hand-set in config/evidence.yaml and
+# recalibrated from gold at the end". They are deliberately NOT set here -
+# inventing them before the checks exist would bake in numbers nobody chose.
+# Setting the initial values is an ADR (context, decision, consequences), due
+# with the Tier 0/1 implementation.
+#
+# Two properties this file must preserve, from CLAUDE.md section 3:
+#   - Rejecting-only checks (type, format, range, checksum, value-parses-from-
+#     source_text) may drive P(correct) to ~0 on failure. They must NOT confirm
+#     on success: lr_confirm stays 1.0.
+#   - Confirming checks (arithmetic reconciliation, counterpart match,
+#     master-data match, independent-lineage crop agreement, premium region
+#     read) carry lr_confirm > 1.0, weighted by estimated lineage independence.
+
+checks: {}
+
+# Example shape:
+#
+# checks:
+#   tier0.value_parses_from_source_text:
+#     tier: 0
+#     kind: rejecting        # rejecting | confirming
+#     lr_confirm: 1.0        # rejecting checks never confirm
+#     lr_reject: null        # TODO set in ADR
+#     cost_usd: 0.0
