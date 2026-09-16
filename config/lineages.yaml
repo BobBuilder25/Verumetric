@@ -1,18 +1,38 @@
-# Engine families. Independence is the whole basis of Tier 2 and Tier 4 evidence,
-# so a lineage claim here is a hypothesis, not a fact.
+# Engine families. Independence is the entire basis of Tier 2 and Tier 4
+# evidence, so every claim here is a hypothesis the gold errors will test.
 #
-# CLAUDE.md section 4: "We maintain config/lineages.yaml and *estimate*
-# independence empirically from gold errors." The declared grouping below only
-# sets the prior; the pairwise error-correlation matrix (phi per pair, T10)
-# measured on gold overrides it. If the best pair exceeds phi 0.5, independent
-# consensus is fiction and the evidence weights must be cut accordingly.
+# CLAUDE.md §4: the declared grouping sets the prior; the pairwise
+# error-correlation matrix (phi, T10) measured on gold overrides it. If the best
+# pair exceeds phi 0.5, "independent consensus" is fiction and the evidence
+# weights must be cut, not the threshold.
 
-lineages: []
+lineages:
+  - id: anthropic-claude
+    backbone: "Anthropic Claude multimodal models"
+    members: [claude-extractor, claude-premium-verifier]
+    independence_note: >-
+      The LLM-native extractor and the Tier 3 premium verifier are the same
+      model family. For a field the Claude extractor produced, a Tier 3 read is
+      a same-lineage recheck and confirms far less than the ladder's default
+      weighting assumes — a model that misreads a smudged 3 as an 8 is not
+      obviously the model to ask whether it was a 3. Treat the Tier 3
+      likelihood ratio as ~1.0 for Claude-extracted fields until gold measures
+      the pair, and prefer a different-lineage engine for Tier 2 on those
+      fields. Tier 3 retains full weight over OCR-lineage extractions.
 
-# Example shape:
-#
-# lineages:
-#   - id: aws-textract
-#     backbone: "AWS Textract OCR stack"
-#     notes: "Assumed independent of LLM-native extractors; verify on gold."
-#     known_shared_components: []
+  - id: paddleocr
+    backbone: "PaddleOCR (PP-OCR), run locally"
+    members: [paddleocr]
+    independence_note: >-
+      Ours, and reference-only by policy. Independent of every hosted engine,
+      which is what makes provenance grounding a check a provider cannot satisfy
+      without reading the document correctly (part-3 §8 item 7).
+
+  - id: tesseract
+    backbone: "Tesseract LSTM"
+    members: [tesseract]
+    independence_note: Fallback reference layer only; independent of the hosted engines.
+
+  # Populated when cloud OCR credentials arrive.
+  # - id: aws-textract
+  # - id: gcp-document-ai

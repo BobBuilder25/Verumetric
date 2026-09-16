@@ -48,7 +48,9 @@ with human rescue in the loop is a failed threshold.**
 
 ### Decision rule (from `docs/critique/part-3.md` §6)
 
-§7 lists the thresholds; the branch they feed is in part-3:
+§7 lists the thresholds; the branch they feed is in part-3. **Amendment 1
+below supersedes the gating of T6, T2b and T5's second clause** — read it with
+this list:
 
 - **GO** — T1, T2, T3, T4, T5, T8, T10, T11 pass **and** T7 passes.
 - **PIVOT A — narrower field scope** — T2/T4 fail *only* on MAYBE-class fields
@@ -77,17 +79,76 @@ Recorded before data so they cannot be resolved later in whichever direction the
 results favor. Each is an amendment (below), permitted only while no data exists
 for the affected test.
 
-1. **T2b, T6 and T9 are absent from the GO condition** as part-3 §6 writes it,
-   though T9 drives PIVOT D and a kill signal. Decide explicitly whether a GO
-   survives a T6 or T2b failure.
-2. **T5's second clause needs a customer number** — "≤ 10% of the per-page human
-   review cost the customer reports" is unevaluable until each document source
-   states its current per-page cost. Collect it alongside the consequence values
-   in `config/consequences.yaml`.
+1. ~~**T2b, T6 and T9 are absent from the GO condition.**~~ **Settled by
+   Amendment 1** (2026-09-16): T6 is measure-and-report, T2b routes to PIVOT A
+   under a stated condition, T9 keeps its existing role in PIVOT D and the kill
+   signals.
+2. ~~**T5's second clause needs a customer number.**~~ **Settled by Amendment 1**:
+   the second clause is non-gating and reported as "pending customer input"
+   until each source reports its real per-page cost. The first clause still
+   gates. One open question remains — see Amendment 1, note on T5.
 3. **T8 is a sales test and the sole unconditional KILL.** It needs eight
    *qualified* prospects; define "qualified" in writing before the first demo.
 4. **T11's deciles need a minimum bin count.** Several deciles will be sparse at
    experiment scale. Decide the minimum adjudicated fields per bin that counts.
+
+---
+
+## Amendment 1 — gating rulings
+
+**Date:** 2026-09-16 · **By:** Tanner · **Status:** made before any data exists,
+per the amendment policy below. **No threshold value changes.** What changes is
+which tests gate the GO decision.
+
+**Ruling principle.** *A test gates GO only if failing it means the thesis is
+false. Tests that measure engineering quality get reported, not gated.*
+
+### T6 (latency) — no longer a GO gate
+
+Downgraded to **measure-and-report**. Latency is parallelism and caching, not a
+thesis question. Record P50/P95 per the §6 outputs as before. If verification
+P95 exceeds **3× extraction P95**, raise it as an engineering finding — not a
+KILL, not a PIVOT.
+
+### T2b (residual on all important fields) — conditional, routes to PIVOT A
+
+Failing T2b alone does **not** block GO. On a T2b failure, decompose the excess
+residual by field class:
+
+- Excess concentrated in **party / text / single-source handwritten** fields →
+  ship with those policy-gated to low-confidence/null and **GO on the YES-class
+  fields**. This is PIVOT A, and it is a shipping decision, not a failure.
+- Excess in **money, identifier, quantity or date** → that is T2 territory and
+  it **gates**. A T2b failure carried by money or ID fields is a T2 failure
+  wearing a wider denominator.
+
+The decomposition must be computed and reported, never asserted.
+
+### T5 (cost) — first clause gates, second clause cannot
+
+- **≤ $0.04/page** — gates. If verification costs more than this, the economics
+  the thesis rests on are not there.
+- **≤ 10% of the customer's reported per-page human review cost** — **non-gating
+  until a real customer figure exists.** `config/consequences.yaml` carries a
+  $0.90 placeholder purely to keep the pipeline unblocked. Reports state
+  "pending customer input" for this clause and print no pass/fail from the
+  placeholder.
+
+*Note — needs Tanner's confirmation:* the ruling as given lists T1, T2, T3, T4,
+T8, T10, T11 as hard gates and does not mention T5. Read literally that drops
+T5 entirely, which contradicts the ruling principle: verification that costs
+more than the human work it replaces falsifies the commercial half of the
+thesis. This amendment therefore keeps **T5's first clause as a gate**. If that
+is wrong, correct it here before data exists.
+
+### Gates after this amendment
+
+| Gates GO | Reported, does not gate |
+|---|---|
+| T1, T2, T3, T4, T5 (first clause), T7, T8, T10, T11 | T2b (routes to PIVOT A under the condition above), T5 (second clause, pending), T6 |
+
+T9 is unchanged: it does not gate directly, it drives PIVOT D and carries a kill
+signal at > 30%. The four pre-registered kill signals are unchanged.
 
 ### Amendment policy
 

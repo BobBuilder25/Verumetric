@@ -1,39 +1,62 @@
 # Consequence: the customer-assigned cost of an undetected error on a field.
-# It is the term that decides how deep the evidence stack goes, via the stopping
-# rule: PASS when P(wrong) x consequence < cost of the next useful check.
+# It decides how deep the evidence stack goes, through the stopping rule:
+# PASS when P(wrong) x consequence < cost of the next check that could change
+# the decision.
 #
-# CLAUDE.md section 4: money fields default to their value x a multiplier;
-# identifiers get a policy constant. These come from a 30-minute session with
-# each document source - they are the customer's numbers, not ours. Collect the
-# customer's current per-page human review cost in the same session; T5's second
-# clause cannot be evaluated without it.
+# STATUS: PLACEHOLDER. Every value below was set by Tanner on 2026-09-16 so the
+# stopping rule is not blocked, and is to be replaced after the customer
+# conversations. Any report that uses these must say so — a consequence we chose
+# and a consequence the customer chose support very different claims, and the
+# stopping rule is sensitive to them: halving the money multiplier moves fields
+# out of Tier 3 and changes measured coverage.
+
+status: placeholder
+set_by: tanner
+set_on: 2026-09-16
+replace_after: customer consequence conversations (one per document source)
 
 defaults:
   money:
     mode: value_multiplier
-    multiplier: null          # TODO from each document source
+    multiplier: 1.0
+    floor_usd: 25
   identifier:
     mode: policy_constant
-    usd: null                 # TODO
+    usd: 150
+    rationale: a wrong PO/ticket/invoice number misroutes a whole job
   quantity:
-    mode: policy_constant
-    usd: null                 # TODO
+    mode: value_multiplier_on_delta
+    basis: unit_price_x_quantity_delta
+    floor_usd: 25
+    fallback_usd: 75          # when unit price is unknown
   date:
     mode: policy_constant
-    usd: null                 # TODO
+    usd: 40
   party:
     mode: policy_constant
-    usd: null                 # TODO
+    usd: 60
   text:
     mode: policy_constant
-    usd: null                 # TODO
+    usd: 5
   line_item:
-    mode: policy_constant
-    usd: null                 # TODO
+    mode: inherit_from_components
+    note: >-
+      A line_item is composite; its consequence is the aggregate of the money
+      and quantity fields it contains rather than a constant of its own.
 
-# Per-source overrides, keyed by document source id.
+# Per-source overrides, keyed by document source id. Empty until the customer
+# conversations happen.
 by_source: {}
 
-# Reported by each source, for T5. Not a consequence; recorded here so it is
-# collected in the same conversation.
-human_review_cost_per_page_usd: {}
+# --- T5, second clause ---
+# "verification + retries <= 10% of the per-page human review cost the customer
+# reports". The figure below is a PLACEHOLDER, not a customer report.
+#
+# Binding rule (Tanner, 2026-09-16): T5's second clause must be reported as
+# "pending customer input" and may neither pass nor fail on this number. Any
+# report printing a T5 second-clause result computed from a placeholder is a bug.
+human_review_cost_per_page_usd:
+  _placeholder: 0.90
+  _status: placeholder
+  _gating: forbidden
+  by_source: {}             # real reported figures land here, one per source

@@ -1,31 +1,77 @@
-# Extraction providers and the premium verifier.
+# Providers: extractors, the reference layer, and the premium verifier.
 #
-# Unfilled: needs Tanner's credentials and each vendor's current posted pricing.
-# CLAUDE.md section 3 rule 9: never send documents to a provider not listed here.
-# Target: 4-5 extractors across >= 3 lineages, one of them an open-weights
-# engine we run ourselves, plus one reference-layer OCR and one premium verifier.
-#
-# Each entry:
-#   id:        stable key used in logs, priors and the cost ledger
-#   role:      extractor | reference | premium
-#   adapter:   dotted path under verumetric.providers
-#   lineage:   key into lineages.yaml (two providers sharing a backbone are NOT
-#              independent, whatever their marketing says)
-#   region:    where the document is processed; a hard policy input, not a note
-#   pricing:   unit and rate; leave null until confirmed against the vendor page
-#   enabled:   false until credentials are present and a smoke test has passed
+# CLAUDE.md §3 rule 9: never send documents to a provider not listed here.
+# Pricing below is the vendor's posted per-token rate. Per-page cost is NOT
+# estimated from it — costs.py records actual usage from each response, because
+# T5 is a pre-registered cost threshold and an estimated page cost would decide
+# it before a single page ran.
 
-providers: []
+providers:
+  # --- Adapter #1: LLM-native extractor (no infra, credentials in hand) ---
+  - id: claude-extractor
+    role: extractor
+    adapter: verumetric.providers.anthropic_llm
+    model: claude-opus-5
+    lineage: anthropic-claude
+    region: us
+    pricing:
+      unit: token
+      usd_per_mtok_input: 5.00
+      usd_per_mtok_output: 25.00
+      note: >-
+        Image input is billed as input tokens derived from page dimensions.
+        Do not pre-compute a per-page figure; read usage from each response.
+    enabled: false        # flip after the adapter's smoke test passes
 
-# Example shape (commented until a real provider is wired):
-#
-# providers:
-#   - id: textract
-#     role: extractor
-#     adapter: verumetric.providers.textract
-#     lineage: aws-textract
-#     region: us-west-2
-#     pricing:
-#       unit: page
-#       usd_per_unit: null      # TODO confirm
-#     enabled: false
+  # --- Premium verifier (Tier 3), region-scoped ---
+  # WARNING: shares lineage with claude-extractor. See lineages.yaml and
+  # ADR-0003. Tier 3 evidence on a field the Claude extractor produced is a
+  # same-lineage recheck, not independent confirmation, and must be weighted
+  # accordingly until the empirical phi says otherwise.
+  - id: claude-premium-verifier
+    role: premium
+    adapter: verumetric.providers.anthropic_llm
+    model: claude-opus-5
+    lineage: anthropic-claude
+    region: us
+    pricing:
+      unit: token
+      usd_per_mtok_input: 5.00
+      usd_per_mtok_output: 25.00
+    enabled: false
+
+  # --- Reference layer: ours, local, zero marginal cost ---
+  # Reference-only. Never an extraction arm (ADR-0003), so the Tier 1 grounding
+  # check stays independent of every provider it grounds.
+  - id: paddleocr
+    role: reference
+    adapter: verumetric.providers.paddleocr_local
+    lineage: paddleocr
+    region: local
+    pricing:
+      unit: page
+      usd_per_unit: 0.0
+    enabled: false
+
+  - id: tesseract
+    role: reference
+    adapter: verumetric.providers.tesseract_local
+    lineage: tesseract
+    region: local
+    pricing:
+      unit: page
+      usd_per_unit: 0.0
+    enabled: false
+    note: Fallback for paddleocr only, if the Paddle install fights us (TSV word boxes).
+
+  # --- Adapter #2: cloud OCR-native. Credentials pending. ---
+  - id: cloud-ocr
+    role: extractor
+    adapter: null           # verumetric.providers.textract | .document_ai
+    model: null
+    lineage: null           # aws-textract | gcp-document-ai
+    region: null
+    pricing:
+      unit: page
+      usd_per_unit: null    # TODO confirm against the vendor's pricing page
+    enabled: false
