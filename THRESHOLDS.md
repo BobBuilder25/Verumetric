@@ -134,12 +134,13 @@ The decomposition must be computed and reported, never asserted.
   "pending customer input" for this clause and print no pass/fail from the
   placeholder.
 
-*Note — needs Tanner's confirmation:* the ruling as given lists T1, T2, T3, T4,
-T8, T10, T11 as hard gates and does not mention T5. Read literally that drops
-T5 entirely, which contradicts the ruling principle: verification that costs
-more than the human work it replaces falsifies the commercial half of the
-thesis. This amendment therefore keeps **T5's first clause as a gate**. If that
-is wrong, correct it here before data exists.
+*Confirmed by Tanner, 2026-09-16:* **T5's first clause gates.** The ruling as
+originally given listed T1, T2, T3, T4, T8, T10, T11 and did not mention T5;
+read literally that would have dropped it, which contradicts the ruling
+principle — verification that costs more than the human work it replaces
+falsifies the commercial half of the thesis even when the technology works.
+T5's first clause ($0.04/page) is a hard gate. The second clause remains
+non-gating until a real customer figure exists.
 
 ### Gates after this amendment
 
