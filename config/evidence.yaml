@@ -102,6 +102,29 @@ checks:
     cost_usd: 0.0
     note: UNAVAILABLE on the public corpora (ADR-0003, ADR-0005).
 
+  tier0.vocabulary_match:
+    tier: 0
+    kind: confirming
+    group: tier0_external
+    # Membership of a closed set is confirming for the same reason arithmetic
+    # is: most wrong readings land outside it. Held moderate because strength
+    # depends on how closed the set is - seven cooking units is strong, a
+    # hundred thousand ingredient names is weak - and the check records set size
+    # so recalibration can separate the two cases.
+    lr_confirm: 8.0
+    lr_reject: 0.12
+    cost_usd: 0.0
+
+  tier0.structural_recall:
+    tier: 0
+    kind: confirming
+    group: tier0_arithmetic
+    # The completeness check. Approximate (wrapped lines, blank lines), so it
+    # raises document-level risk rather than condemning a field.
+    lr_confirm: 6.0
+    lr_reject: 0.25
+    cost_usd: 0.0
+
   # --- Tier 1, confirming ----------------------------------------------------
   tier1.source_text_grounds:
     tier: 1

@@ -388,3 +388,142 @@ def test_the_unconverted_consequence_bug_would_have_escalated_everything():
 
     assert converted is Decision.PASS
     assert unconverted is Decision.PENDING
+
+
+# --- vocabulary and recall: the general checks for tasks without arithmetic ---
+
+COOKING_UNITS = {"cup", "teaspoon", "tablespoon", "dash", "pinch", "ounce", "pound", "quart"}
+
+
+def test_a_known_unit_confirms():
+    """Closed-set membership is confirming for the same reason arithmetic is:
+    most wrong readings land outside the set."""
+    from verumetric.checks.tier0_deterministic import check_vocabulary_match
+
+    c = claim("tablespoon", field_class=FieldClass.TEXT, name="unit")
+    r = check_vocabulary_match(c, COOKING_UNITS, WEIGHTS, vocabulary_name="cooking_units")
+    assert r.outcome is CheckOutcome.PASS
+    assert r.likelihood_ratio > 1.0
+
+
+def test_a_misread_unit_fails_the_vocabulary():
+    from verumetric.checks.tier0_deterministic import check_vocabulary_match
+
+    c = claim("tablespocn", field_class=FieldClass.TEXT, name="unit")
+    r = check_vocabulary_match(c, COOKING_UNITS, WEIGHTS, vocabulary_name="cooking_units")
+    assert r.outcome is CheckOutcome.FAIL
+
+
+def test_vocabulary_matching_ignores_cosmetic_differences():
+    from verumetric.checks.tier0_deterministic import check_vocabulary_match
+
+    c = claim("TABLESPOON", field_class=FieldClass.TEXT, name="unit")
+    assert check_vocabulary_match(c, COOKING_UNITS, WEIGHTS).outcome is CheckOutcome.PASS
+
+
+def test_vocabulary_size_is_recorded_so_strength_can_be_recalibrated():
+    """Seven units is strong evidence; a hundred thousand ingredient names is
+    weak. The check must not pretend those are the same."""
+    from verumetric.checks.tier0_deterministic import check_vocabulary_match
+
+    c = claim("cup", field_class=FieldClass.TEXT, name="unit")
+    r = check_vocabulary_match(c, COOKING_UNITS, WEIGHTS)
+    assert r.detail["vocabulary_size"] == len(COOKING_UNITS)
+
+
+def test_no_vocabulary_is_unavailable_not_failed():
+    from verumetric.checks.tier0_deterministic import check_vocabulary_match
+
+    c = claim("cup", field_class=FieldClass.TEXT, name="unit")
+    assert check_vocabulary_match(c, None, WEIGHTS).outcome is CheckOutcome.UNAVAILABLE
+
+
+def test_structural_recall_confirms_a_complete_list(layer):
+    """The completeness check: our own OCR counts the lines without extracting
+    them, which is what breaks the symmetry in 'did it miss anything'."""
+    from verumetric.checks.tier0_deterministic import check_structural_recall
+
+    r = check_structural_recall(len(layer.lines()), layer, None, WEIGHTS)
+    assert r.outcome is CheckOutcome.PASS
+
+
+def test_structural_recall_catches_a_dropped_item(layer):
+    from verumetric.checks.tier0_deterministic import check_structural_recall
+
+    r = check_structural_recall(len(layer.lines()) - 2, layer, None, WEIGHTS)
+    assert r.outcome is CheckOutcome.FAIL
+    assert r.detail["shortfall"] == 2
+
+
+def test_structural_recall_tolerance_is_explicit(layer):
+    """Approximate by nature - a wrapped line reads as two - so the slack is a
+    stated parameter rather than a hidden fudge."""
+    from verumetric.checks.tier0_deterministic import check_structural_recall
+
+    r = check_structural_recall(len(layer.lines()) - 1, layer, None, WEIGHTS, tolerance=1)
+    assert r.outcome is CheckOutcome.PASS
+
+
+def test_structural_recall_without_a_reference_layer_is_unavailable():
+    from verumetric.checks.tier0_deterministic import check_structural_recall
+
+    assert check_structural_recall(5, None, None, WEIGHTS).outcome is CheckOutcome.UNAVAILABLE
+
+
+def test_a_task_with_no_arithmetic_can_still_accumulate_confirming_evidence(layer):
+    """The point of both checks: grandma's recipes have no sums, but vocabulary
+    membership, structural recall and grounding are each confirming evidence, so
+    the ladder is not empty on a document without arithmetic.
+
+    The progression is the interesting part - it shows exactly how much evidence
+    a low-consequence field needs before the economics say stop.
+    """
+    from verumetric.checks.tier0_deterministic import (
+        check_structural_recall,
+        check_vocabulary_match,
+    )
+    from verumetric.checks.tier1_provenance import check_source_text_grounds
+    from verumetric.evidence import Decision, StoppingRule, combine
+
+    c = claim("tablespoon", field_class=FieldClass.TEXT, name="unit", source_text="TOTAL")
+    vocab = check_vocabulary_match(c, COOKING_UNITS, WEIGHTS, vocabulary_name="cooking_units")
+    recall = check_structural_recall(len(layer.lines()), layer, None, WEIGHTS)
+    grounds = check_source_text_grounds(c, layer, WEIGHTS)
+    assert grounds.outcome is CheckOutcome.PASS
+
+    rule = StoppingRule()
+    consequence = Decimal("1.00")  # a wrong ingredient costs a bad dinner, not an invoice
+    tier2 = Decimal("0.0013")
+
+    def decide(results):
+        return rule.decide(combine(0.90, results), FieldClass.TEXT, consequence, tier2)[0]
+
+    assert decide([vocab]) is Decision.PENDING
+    assert decide([vocab, recall]) is Decision.PENDING
+    assert decide([vocab, recall, grounds]) is Decision.PASS
+
+
+def test_the_same_evidence_escalates_when_the_stakes_are_higher(layer):
+    """One system, two tasks. Identical checks on a recipe ingredient certify;
+    on a field worth thousands they keep climbing. The task does not change the
+    machinery - the consequence changes how much evidence it buys."""
+    from verumetric.checks.tier0_deterministic import (
+        check_structural_recall,
+        check_vocabulary_match,
+    )
+    from verumetric.checks.tier1_provenance import check_source_text_grounds
+    from verumetric.evidence import Decision, StoppingRule, combine
+
+    c = claim("tablespoon", field_class=FieldClass.TEXT, name="unit", source_text="TOTAL")
+    results = [
+        check_vocabulary_match(c, COOKING_UNITS, WEIGHTS),
+        check_structural_recall(len(layer.lines()), layer, None, WEIGHTS),
+        check_source_text_grounds(c, layer, WEIGHTS),
+    ]
+    posterior = combine(0.90, results)
+    rule = StoppingRule()
+
+    recipe, _ = rule.decide(posterior, FieldClass.TEXT, Decimal("1.00"), Decimal("0.0013"))
+    invoice, _ = rule.decide(posterior, FieldClass.TEXT, Decimal("5000"), Decimal("0.0013"))
+    assert recipe is Decision.PASS
+    assert invoice is Decision.PENDING

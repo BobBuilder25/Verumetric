@@ -509,3 +509,108 @@ def check_counterpart_match(
             cid, TIER, CheckKind.CONFIRMING, "no counterpart documents available in this corpus"
         )
     raise NotImplementedError("counterpart matching lands with customer data")
+
+
+def check_vocabulary_match(
+    claim: FieldClaim,
+    vocabulary: set[str] | None,
+    weights: EvidenceWeights,
+    *,
+    vocabulary_name: str = "vocabulary",
+) -> CheckResult:
+    """Is the value a member of a known closed set?
+
+    The general form of "business rules against master data" (CLAUDE.md §5).
+    The set is whatever the task supplies: cooking units, carrier codes, part
+    numbers, vendor names, ICD codes, a customer's own product catalogue.
+
+    This is CONFIRMING, and the reason is worth stating because it is the same
+    reason arithmetic confirms: most wrong readings land outside the set. A
+    misread of "tablespoon" is unlikely to be another real unit; it is likely to
+    be "tablespocn". So membership is evidence that would have failed had the
+    value been misread.
+
+    Strength depends on how closed the set is. Seven cooking units is strong
+    evidence; a hundred thousand ingredient names is weak, because a wrong
+    reading has many more chances to land inside it by accident. The set size is
+    recorded so recalibration from gold can weight the two cases differently
+    rather than pretending they are the same check.
+    """
+    cid = "tier0.vocabulary_match"
+    kind = CheckKind.CONFIRMING
+
+    if vocabulary is None:
+        return unavailable(cid, TIER, kind, f"no {vocabulary_name} supplied for this field")
+    if claim.provenance.type is ProvenanceType.ABSENT:
+        return not_applicable(cid, TIER, kind, "absent claim")
+
+    from verumetric.reference import normalize
+
+    normalized = {normalize(v) for v in vocabulary}
+    value = normalize(str(claim.value))
+    member = value in normalized
+
+    return _result(
+        cid,
+        kind,
+        CheckOutcome.PASS if member else CheckOutcome.FAIL,
+        weights,
+        {
+            "vocabulary": vocabulary_name,
+            "vocabulary_size": len(normalized),
+            "value": str(claim.value),
+            "member": member,
+        },
+    )
+
+
+def check_structural_recall(
+    claim_count: int,
+    layer: Any,
+    region: Any,
+    weights: EvidenceWeights,
+    *,
+    tolerance: int = 0,
+) -> CheckResult:
+    """Did the extractor return as many items as the page appears to hold?
+
+    Completeness is the one thing verification cannot establish by inspecting
+    the claims that were made (part-3 §1) - "did it miss a line" is not visible
+    from the lines it returned. The reference layer breaks the symmetry: it
+    counts the text lines in a region without extracting anything from them, so
+    a shortfall is detectable at no cost and points at which region to reread.
+
+    Approximate by nature - a wrapped line reads as two, a blank one as none -
+    which is why the tolerance is explicit and why a shortfall raises risk for
+    the document rather than condemning any single field.
+    """
+    cid = "tier0.structural_recall"
+    kind = CheckKind.CONFIRMING
+
+    if layer is None:
+        return unavailable(cid, TIER, kind, "no reference layer for this page")
+
+    lines = layer.lines()
+    if region is not None:
+        indices = set(layer.words_in(region))
+        lines = [line for line in lines if indices.intersection(line)]
+
+    observed = len(lines)
+    if observed == 0:
+        return unavailable(cid, TIER, kind, "reference layer found no lines in the region")
+
+    shortfall = observed - claim_count
+    holds = shortfall <= tolerance
+
+    return _result(
+        cid,
+        kind,
+        CheckOutcome.PASS if holds else CheckOutcome.FAIL,
+        weights,
+        {
+            "lines_in_region": observed,
+            "claims_returned": claim_count,
+            "shortfall": shortfall,
+            "tolerance": tolerance,
+        },
+    )
