@@ -150,6 +150,78 @@ is wrong, correct it here before data exists.
 T9 is unchanged: it does not gate directly, it drives PIVOT D and carries a kill
 signal at > 30%. The four pre-registered kill signals are unchanged.
 
+---
+
+## Amendment 2 — testability on public corpora
+
+**Date:** 2026-09-16 · **By:** Tanner · **Status:** made before any data exists.
+**No pre-registered threshold value changes.** What changes is which tests this
+particular run can evaluate at all.
+
+The experiment runs on public real-document corpora — CORD (primary), SROIE
+(secondary), FUNSD (no-totals subset) — because no customer documents exist yet
+and synthetic documents cannot test the thesis: generating a page means
+generating its answer. See ADR-0005.
+
+### T8 (customer acceptance) — NOT TESTABLE here
+
+T8 asks whether prospects accept auto-verified output with a stated residual.
+Public corpora have no customer attached, so nothing in this run bears on it.
+
+- T8 **remains a hard KILL gate.**
+- It is **deferred to a separate customer step**, which Tanner runs.
+- Therefore **a GO from this run is CONDITIONAL on T8.** No result from these
+  corpora, however good, clears it. A run that passes everything else and is
+  reported as "GO" without that qualifier is a misreport.
+
+### T9 (ambiguity floor) — testable, with a population caveat
+
+Measured on receipts: small, dense, often photographed, frequently single-source.
+That population plausibly carries a **higher** ambiguity floor than construction
+tickets backed by supplier statements, which are the intended commercial
+population (ADR-0001, ADR-0003).
+
+- Report the measured figure against the pre-registered 15% threshold and the
+  30% kill signal, unchanged.
+- **Flag the population difference wherever the number appears.** A T9 failure on
+  receipts is not a verdict on the construction vertical — and a T9 *pass* on
+  receipts is the stronger result, since it would clear a harder population.
+
+### Testable as written
+
+T1, T2, T2b, T3, T4, T5 (first clause), T6, T7, T10, T11.
+
+### Carried forward from Amendment 1, unchanged
+
+T6 is measure-and-report, not a gate. A T2b failure routes to PIVOT A when the
+excess residual sits in party/text fields and gates when it sits in
+money/identifier/quantity/date. T2 stays a hard gate. T5's second clause remains
+pending customer input and cannot pass or fail on the placeholder.
+
+### Two floors that constrain every number from this run
+
+1. **Gold noise floor.** Published annotations are gold here, and they contain
+   known errors. Tanner adjudicates a random 100-field slice; the measured
+   annotation-error rate is reported. **If it exceeds 2%, it is folded into every
+   residual as gold noise and stated explicitly.** No residual may be reported
+   below the gold noise floor as though it were real — a 0.3% residual measured
+   against 2%-wrong gold is not a residual, it is noise the instrument cannot
+   resolve.
+
+2. **Coverage is a LOWER BOUND.** No counterpart documents exist in these
+   corpora, so cross-document reconciliation — the strongest confirming evidence
+   in the stack — contributes nothing here. Counterpart evidence is logged
+   UNAVAILABLE, never FAIL. `RESULTS.md` must state that real customer paper
+   would raise measured coverage, and by an unknown amount.
+
+### Contamination is a validity condition, not a metric
+
+CORD and SROIE are almost certainly in the training data of the models under
+test. All T-metrics are computed on the **augmented** run; the as-is minus
+augmented delta per provider is reported as the contamination estimate. If that
+delta is large, the as-is numbers are recitation, and any T-result quoted from
+them is void.
+
 ### Amendment policy
 
 Amendable **only before results exist for the affected test**, stating what
