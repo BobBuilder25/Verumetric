@@ -8,16 +8,22 @@
 
 providers:
   # --- Adapter #1: LLM-native extractor (no infra, credentials in hand) ---
+  # Bulk extractor. Sonnet-class rather than the frontier model (ADR-0008):
+  # cheaper, and more on-thesis - the claim under test is that verification lets
+  # a buyer purchase CHEAPER machine work safely, so an experiment whose
+  # extractor is the most expensive model available tests the least interesting
+  # version of it. One-line change if Tanner prefers otherwise.
   - id: claude-extractor
     role: extractor
     adapter: verumetric.providers.anthropic_llm
-    model: claude-opus-5
+    model: claude-sonnet-5
     lineage: anthropic-claude
     region: us
+    prompt_cache: true        # the schema prefix is identical on every page
     pricing:
       unit: token
-      usd_per_mtok_input: 5.00
-      usd_per_mtok_output: 25.00
+      usd_per_mtok_input: 2.00
+      usd_per_mtok_output: 10.00
       note: >-
         Image input is billed as input tokens derived from page dimensions.
         Do not pre-compute a per-page figure; read usage from each response.

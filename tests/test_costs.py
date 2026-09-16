@@ -103,3 +103,79 @@ def test_env_var_can_tighten_the_limit(tmp_path, monkeypatch):
     monkeypatch.setenv("VERUMETRIC_SPEND_LIMIT_USD", "5")
     led = SpendLedger.open(tmp_path / "s.jsonl")
     assert led.limit_usd == Decimal("5")
+
+
+# --- budget checkpoints and projection (ADR-0008) ---------------------------
+
+
+def test_the_default_limit_is_the_hundred_dollar_budget():
+    from verumetric.costs import DEFAULT_LIMIT_USD
+
+    assert DEFAULT_LIMIT_USD == Decimal("100")
+
+
+def test_crossing_a_quarter_of_the_budget_is_announced(tmp_path, capsys):
+    """A budget is only a constraint if you hear about it before it is gone."""
+    led = SpendLedger.open(tmp_path / "s.jsonl", Decimal("100"))
+    led.record(CallRecord("p", "m", 0, None, Decimal("26"), 1.0))
+    assert "25% of budget" in capsys.readouterr().out
+
+
+def test_each_checkpoint_announces_once(tmp_path, capsys):
+    led = SpendLedger.open(tmp_path / "s.jsonl", Decimal("100"))
+    led.record(CallRecord("p", "m", 0, None, Decimal("26"), 1.0))
+    capsys.readouterr()
+    led.record(CallRecord("p", "m", 0, None, Decimal("1"), 1.0))
+    assert "25% of budget" not in capsys.readouterr().out
+
+
+def test_one_call_can_cross_several_checkpoints(tmp_path, capsys):
+    led = SpendLedger.open(tmp_path / "s.jsonl", Decimal("100"))
+    led.record(CallRecord("p", "m", 0, None, Decimal("80"), 1.0))
+    out = capsys.readouterr().out
+    assert "25% of budget" in out and "75% of budget" in out
+
+
+def test_budget_projection_reports_a_shortfall(tmp_path, capsys):
+    """The staged plan only works if the projection is checked between stages."""
+    import sys
+
+    sys.path.insert(0, "tools")
+    import budget
+
+    path = tmp_path / "s.jsonl"
+    led = SpendLedger.open(path, Decimal("100"))
+    for _ in range(10):
+        led.record(CallRecord("p", "m", 0, "d", Decimal("1.00"), 1.0, pages=1))
+
+    code = budget.main(["--ledger", str(path), "--remaining-pages", "390", "--limit", "100"])
+    assert code == 1
+    assert "DOES NOT FIT" in capsys.readouterr().out
+
+
+def test_budget_projection_reports_headroom(tmp_path, capsys):
+    import sys
+
+    sys.path.insert(0, "tools")
+    import budget
+
+    path = tmp_path / "s.jsonl"
+    led = SpendLedger.open(path, Decimal("100"))
+    for _ in range(10):
+        led.record(CallRecord("p", "m", 0, "d", Decimal("0.02"), 1.0, pages=1))
+
+    code = budget.main(["--ledger", str(path), "--remaining-pages", "390", "--limit", "100"])
+    assert code == 0
+    assert "fits, with" in capsys.readouterr().out
+
+
+def test_projection_refuses_to_invent_a_denominator(tmp_path, capsys):
+    import sys
+
+    sys.path.insert(0, "tools")
+    import budget
+
+    path = tmp_path / "s.jsonl"
+    SpendLedger.open(path, Decimal("100"))
+    assert budget.main(["--ledger", str(path), "--limit", "100"]) == 0
+    assert "nothing to project from" in capsys.readouterr().out

@@ -20,7 +20,7 @@ Long-term, the verified-outcome ledger becomes a performance graph (provider × 
 
 > Different extraction providers fail in predictable, context-specific ways, and a fully automated evidence stack can certify a commercially useful fraction of important fields at a measurable residual error rate, without a human in the production path and without rerunning the whole job through an equally expensive model.
 
-If this is false for our first document class, the company as conceived does not exist and we want to know that for under $1,000.
+If this is false for our first document class, the company as conceived does not exist and we want to know that for under $1,000. **Amended 2026-09-16 by Tanner: the budget for this test is $100 (ADR-0008).**
 
 Key reframe (do not lose this): **API cost is a red herring.** Extraction costs $0.005–0.05/page; human data entry and review cost $0.50–2.00/page. The objective is minimizing **expected total cost = extraction cost + verification cost + retry cost + P(undetected error) × consequence of error**, which in practice means maximizing certified coverage at an acceptable residual error. Routing exists to serve that; cheaper API calls are a tiebreaker.
 
@@ -85,7 +85,7 @@ Bayesian evidence accumulation per field with a stopping rule. Not a sequence of
 
 ## 6. The experiment
 
-**Goal:** produce coverage-vs-residual curves, escalation-depth histograms, cost/latency per tier, the lineage correlation matrix, calibration tables, and T1–T11 results for six arms on one document population. Budget ≤ $1,000, 3–4 weeks.
+**Goal:** produce coverage-vs-residual curves, escalation-depth histograms, cost/latency per tier, the lineage correlation matrix, calibration tables, and T1–T11 results for six arms on one document population. Budget ≤ $100 (ADR-0008, amended from $1,000), 3–4 weeks.
 
 **Documents (target 500 pages, `data/raw/`).** Two sources: a trades/mining contractor (material/delivery tickets, supplier invoices, with POs or job-cost entries) and a freight broker (carrier invoices with BOLs/PODs/rate confirmations). Requirements: counterpart documents for ≥ 60% of pages; ≥ 50% "ugly" (handwriting, phone photos, rotation, low-res); ≥ 40% with totals/line items; ~10% deliberately without totals (to measure the recall problem). Tanner sources the documents; you build the intake and stratification report.
 
@@ -192,7 +192,7 @@ Ask Tanner for: provider credentials, the document drop, master-data CSVs, conse
 - **Output first, then iterate.** Don't ask clarifying questions before producing something when a reasonable default exists; state the assumption in the commit or ADR and proceed.
 - **ADRs** for every non-obvious choice (which OCR for the reference layer, how LRs are initialized, cascade order, feature set for arm 4). Short: context, decision, consequences.
 - **Multi-AI cross-check** is Tanner's standard practice; write code and reports so a second model can review them cold (clear docstrings, `reports/RESULTS.md` self-contained).
-- **Costs:** every provider call goes through `costs.py`. Print a running spend total. Hard stop at $600 of API spend without Tanner's confirmation.
+- **Costs:** every provider call goes through `costs.py`. Print a running spend total. Hard stop at $100 of API spend without Tanner's confirmation (ADR-0008, amended from $600).
 - **Secrets:** environment variables only, `.env` gitignored, `.env.example` committed.
 - **Cloudflare:** not used in this phase. Local Python. Deployment questions are deferred until after a GO.
 - **Don't build:** dashboards, APIs, queues, auth, payments, a marketplace, a seller SDK, learned routers beyond arm 4's simple model, anything for a second document class.
@@ -205,4 +205,4 @@ Ask Tanner for: provider credentials, the document drop, master-data CSVs, conse
 - `docs/critique/part-2.md` — product vs defensible core, payment/legal architecture (service bureau first; Stripe Connect models for later), evidence-diversity verification, provenance-first schemas, vertical comparison (construction/mining contractors for the experiment; freight for scale), standalone-company analysis, competition, original GO/NO-GO.
 - `docs/critique/part-3.md` — machine-only constraint, task-class taxonomy (YES/MAYBE/NO by verification asymmetry), the Bayesian evidence stack, audit design, statistical power limits, the revised thresholds in §7, the experiment spec in §6.
 
-When in doubt: verify the claim, not the job; no humans in the path; pre-registered thresholds; scripts not platform; under $1,000.
+When in doubt: verify the claim, not the job; no humans in the path; pre-registered thresholds; scripts not platform; under $100.

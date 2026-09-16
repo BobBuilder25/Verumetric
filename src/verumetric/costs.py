@@ -7,9 +7,10 @@ Every provider call goes through here. Two jobs:
    from a pricing page. Tokens and latency are recorded per call, per tier, per
    provider, and a page's cost is the sum of what it actually spent.
 
-2. **Stop.** A hard stop at $600 without explicit confirmation. The budget for
-   the whole experiment is $1,000, and the cheapest way to lose it is a retry
-   loop nobody is watching at 2am.
+2. **Stop.** A hard stop at the budget without explicit confirmation - $100
+   (ADR-0008). The cheapest way to lose a small budget is a retry loop nobody is
+   watching at 2am, so the guard runs before every call and the ledger announces
+   each quarter of the budget as it goes.
 
 The ledger is a JSONL file under `data/runs/`, appended and never rewritten, and
 it is re-read on startup - so a crashed run resumes with its spend intact rather
@@ -31,7 +32,10 @@ from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 DEFAULT_LEDGER = REPO_ROOT / "data" / "runs" / "spend.jsonl"
-DEFAULT_LIMIT_USD = Decimal("600")
+DEFAULT_LIMIT_USD = Decimal("100")  # Tanner, 2026-09-16 (ADR-0008)
+#: Fractions of the limit at which the ledger says so out loud. A budget is
+#: only a constraint if you hear about it before it is gone.
+CHECKPOINTS = (Decimal("0.25"), Decimal("0.50"), Decimal("0.75"), Decimal("0.90"))
 
 
 class SpendLimitExceeded(RuntimeError):
@@ -169,7 +173,7 @@ class SpendLedger:
                 f"this call would take spend to "
                 f"${self._total + estimated_usd:.2f}, past the ${self.limit_usd:.2f} limit. "
                 f"Spent ${self._total:.2f} so far. Raising the limit needs Tanner's "
-                f"confirmation (CLAUDE.md §10) - it is not a default to edit past."
+                f"confirmation (ADR-0008) - it is not a default to edit past."
             )
 
     def record(self, call: CallRecord) -> CallRecord:
@@ -177,8 +181,20 @@ class SpendLedger:
         with self.path.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(call.to_json()) + "\n")
         self.records.append(call)
+        before = self._total
         self._total += call.usd
+        self._announce_crossings(before, self._total)
         return call
+
+    def _announce_crossings(self, before: Decimal, after: Decimal) -> None:
+        """Say so when a quarter of the budget goes past, once per checkpoint."""
+        for fraction in CHECKPOINTS:
+            mark = self.limit_usd * fraction
+            if before < mark <= after:
+                print(
+                    f"[spend] ${after:.2f} of ${self.limit_usd:.2f} "
+                    f"({fraction * 100:.0f}% of budget). ${self.remaining_usd:.2f} left."
+                )
 
     @contextmanager
     def call(
