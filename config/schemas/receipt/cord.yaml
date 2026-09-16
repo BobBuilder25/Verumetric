@@ -1,0 +1,65 @@
+# Document class: CORD receipts (ADR-0005).
+#
+# Maps CORD's entity labels onto our field classes. INCOMPLETE BY DESIGN: the
+# groups below are the ones we are confident about; the full label set is
+# confirmed against the downloaded corpus, not from memory. tools/stratify.py
+# reports every entity it could not map, and those get added here from real data.
+#
+# An entity that reaches the pipeline unmapped is treated as `text` and logged as
+# unmapped — never silently dropped, and never guessed into `money`, since a
+# mis-mapped money field would change both its consequence and its thresholds.
+
+document_class: cord_receipt
+source_corpus: cord
+license: CC-BY-4.0
+
+field_class_map:
+  money:
+    - "menu.price"
+    - "menu.unitprice"
+    - "menu.discountprice"
+    - "menu.sub_price"
+    - "sub_total.subtotal_price"
+    - "sub_total.discount_price"
+    - "sub_total.service_price"
+    - "sub_total.tax_price"
+    - "sub_total.etc"
+    - "total.total_price"
+    - "total.cashprice"
+    - "total.changeprice"
+    - "total.creditcardprice"
+    - "total.emoneyprice"
+  quantity:
+    - "menu.cnt"
+    - "menu.num"
+    - "sub_total.othersvc_price"
+    - "total.menuqty_cnt"
+    - "total.menutype_cnt"
+  identifier: []
+  date: []
+  party: []
+  text:
+    - "menu.nm"
+    - "menu.itemsubtotal"
+    - "menu.etc"
+    - "total.total_etc"
+  line_item:
+    - "menu"
+
+# Tier 0 confirming evidence available in this population. These are the reason
+# CORD is the primary corpus: without them there is no confirming check at all
+# here, since counterpart documents and master data are both absent (ADR-0005).
+invariants:
+  - id: line_items_sum_to_subtotal
+    expr: "sum(menu.price) == sub_total.subtotal_price"
+  - id: subtotal_plus_tax_service_to_total
+    expr: "sub_total.subtotal_price + sub_total.tax_price + sub_total.service_price - sub_total.discount_price == total.total_price"
+  - id: qty_times_unitprice_is_extended
+    expr: "menu.cnt * menu.unitprice == menu.price"
+    scope: per_line_item
+  - id: tendered_minus_total_is_change
+    expr: "total.cashprice - total.total_price == total.changeprice"
+
+# Not available in this corpus. Marked UNAVAILABLE per field, never FAIL.
+counterparts: []
+master_data: []

@@ -7,6 +7,17 @@ requires-python = ">=3.11"
 license = { text = "UNLICENSED" }
 dependencies = [
     "pydantic>=2.7",
+    "pyyaml>=6.0",
+    "pillow>=10.0",
+    "numpy>=1.26",
+]
+
+[project.optional-dependencies]
+# Only tools/download_corpora.py needs this, and only for CORD. It pulls ~100MB
+# of transitive dependencies, so it stays out of the default install:
+#     uv sync --extra corpora
+corpora = [
+    "datasets>=2.19",
 ]
 
 [dependency-groups]
@@ -24,7 +35,7 @@ packages = ["src/verumetric"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["src", "tools"]
 addopts = "-q"
 
 [tool.ruff]

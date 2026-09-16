@@ -1,0 +1,59 @@
+# Contamination-control augmentation (ADR-0005).
+#
+# CORD and SROIE are almost certainly in the training data of the frontier
+# models we call. Every page runs twice: as-is (the contamination probe) and
+# augmented. ALL T-metrics are computed on the augmented run; the as-is minus
+# augmented delta per provider is the contamination estimate.
+#
+# This file is committed and versioned because a run is only reproducible if the
+# augmentation is. Changing any value below changes every measured number, so a
+# change is an amendment with a note, not an edit.
+
+version: 1
+
+# Per-page seeds are derived as hash(seed, doc_id) — never drawn from one
+# sequential stream — so adding a page later does not re-augment the others.
+seed: 20260916
+
+# Applied in this order. Ranges are inclusive; each value is drawn uniformly
+# from the page's own seeded generator.
+rotation:
+  enabled: true
+  degrees: [-7.0, 7.0]
+  # Expand the canvas so rotation never clips content out of frame. The crop
+  # step below is what removes margin, deliberately and measurably.
+  expand: true
+  fill: [255, 255, 255]
+
+crop:
+  enabled: true
+  # Fraction of each side removed (or added, if negative) after rotation.
+  # Small: the goal is to change framing, not to cut fields off the page.
+  margin_fraction: [-0.03, 0.04]
+
+blur:
+  enabled: true
+  gaussian_radius_px: [0.4, 1.6]
+
+brightness:
+  enabled: true
+  factor: [0.85, 1.15]
+
+noise:
+  enabled: true
+  gaussian_sigma: [1.0, 5.0]
+
+jpeg:
+  enabled: true
+  quality: [35, 60]
+
+# Boxes are transformed through the same affine and written alongside each
+# augmented page. Axis-aligned boxes become quadrilaterals under rotation; we
+# store BOTH the mapped quad and its axis-aligned hull.
+#
+# The hull is strictly larger than the true region, which slightly loosens Tier 1
+# grounding tolerance on rotated pages. Report grounding against the quad where a
+# provider gives one, and treat hull-based grounding as the conservative case.
+boxes:
+  emit_quad: true
+  emit_axis_aligned_hull: true

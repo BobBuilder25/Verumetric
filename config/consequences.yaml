@@ -14,35 +14,46 @@ status: placeholder
 set_by: tanner
 set_on: 2026-09-16
 replace_after: customer consequence conversations (one per document source)
+in_force: receipt scale (ADR-0005); construction scale retained below, not in force
 
 defaults:
+  # Scaled for the receipt population the experiment runs on (ADR-0005).
+  # Receipts are small-dollar; the construction-scale values that preceded these
+  # are kept below so the switch back is a config change, not archaeology.
   money:
     mode: value_multiplier
     multiplier: 1.0
-    floor_usd: 25
+    floor_usd: 5
   identifier:
     mode: policy_constant
-    usd: 150
-    rationale: a wrong PO/ticket/invoice number misroutes a whole job
+    usd: 25
   quantity:
-    mode: value_multiplier_on_delta
-    basis: unit_price_x_quantity_delta
-    floor_usd: 25
-    fallback_usd: 75          # when unit price is unknown
+    mode: policy_constant
+    usd: 10
   date:
     mode: policy_constant
-    usd: 40
+    usd: 10
   party:
     mode: policy_constant
-    usd: 60
+    usd: 10
   text:
     mode: policy_constant
-    usd: 5
+    usd: 2
   line_item:
     mode: inherit_from_components
     note: >-
-      A line_item is composite; its consequence is the aggregate of the money
-      and quantity fields it contains rather than a constant of its own.
+      A line_item is composite; its consequence aggregates the money and
+      quantity fields it contains rather than being a constant of its own.
+
+# Construction/mining scale, for when customer paper arrives (ADR-0003).
+# Not in force. The stopping rule reads `defaults`.
+construction_defaults:
+  money:      {mode: value_multiplier, multiplier: 1.0, floor_usd: 25}
+  identifier: {mode: policy_constant, usd: 150, rationale: a wrong PO/ticket/invoice number misroutes a whole job}
+  quantity:   {mode: value_multiplier_on_delta, basis: unit_price_x_quantity_delta, floor_usd: 25, fallback_usd: 75}
+  date:       {mode: policy_constant, usd: 40}
+  party:      {mode: policy_constant, usd: 60}
+  text:       {mode: policy_constant, usd: 5}
 
 # Per-source overrides, keyed by document source id. Empty until the customer
 # conversations happen.
